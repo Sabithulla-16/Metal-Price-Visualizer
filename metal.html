@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Market Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script src="./libs/chart.umd.js"></script>
+<script src="./libs/jspdf.umd.min.js"></script>
+
+<style>
+:root{
+  --bg:#0b1020;
+  --glass:rgba(255,255,255,0.08);
+  --border:rgba(255,255,255,0.15);
+  --text:#e5e7eb;
+  --muted:#94a3b8;
+  --accent:#22c55e;
+}
+
+body{
+  margin:0;
+  background:
+    radial-gradient(1000px 500px at 20% -10%, #1e293b 0%, transparent 60%),
+    radial-gradient(800px 400px at 90% 10%, #312e81 0%, transparent 55%),
+    var(--bg);
+  font-family:system-ui,Segoe UI,sans-serif;
+  color:var(--text);
+}
+
+.container{
+  max-width:1100px;
+  margin:auto;
+  padding:0 18px 40px;
+}
+
+/* SAFE HEADER */
+header{
+  padding:56px 0 14px;
+  padding-top:calc(56px + env(safe-area-inset-top));
+  text-align:center;
+}
+header h1{
+  font-size:28px;
+  font-weight:700;
+}
+header p{
+  color:var(--muted);
+  font-size:14px;
+}
+
+/* DATE TIME */
+.datetime{
+  text-align:center;
+  font-size:18px;
+  font-weight:800;
+  margin-bottom:24px;
+}
+
+/* Pills */
+.pills{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  justify-content:center;
+  margin-bottom:16px;
+}
+.pills button{
+  padding:10px 18px;
+  border-radius:999px;
+  border:1px solid var(--border);
+  background:rgba(255,255,255,.06);
+  color:var(--text);
+  cursor:pointer;
+}
+.pills button.active{
+  background:#fff;
+  color:#000;
+  font-weight:600;
+}
+
+/* Card */
+.card{
+  background:var(--glass);
+  border:1px solid var(--border);
+  backdrop-filter:blur(18px);
+  border-radius:20px;
+  padding:26px;
+  box-shadow:0 25px 60px rgba(0,0,0,.45);
+}
+
+.asset{
+  font-size:18px;
+  font-weight:600;
+  margin-bottom:6px;
+}
+
+.price{
+  font-size:40px;
+  font-weight:800;
+}
+
+.sub{
+  margin-top:18px;
+  border-top:1px solid var(--border);
+  padding-top:14px;
+}
+.row{
+  display:flex;
+  justify-content:space-between;
+  padding:6px 0;
+  color:var(--muted);
+}
+.row span:last-child{
+  color:var(--text);
+  font-weight:600;
+}
+
+/* CHARTS */
+.charts{
+  display:flex;
+  gap:16px;
+  overflow-x:auto;
+  margin-top:28px;
+}
+.chart-box{
+  min-width:90%;
+  background:var(--glass);
+  border:1px solid var(--border);
+  border-radius:20px;
+  padding:14px;
+}
+.chart-title{
+  text-align:center;
+  margin-bottom:10px;
+  font-weight:600;
+}
+
+/* EXPORT */
+.export{
+  margin-top:24px;
+  text-align:center;
+}
+.export button{
+  padding:12px 22px;
+  border-radius:12px;
+  border:none;
+  background:var(--accent);
+  color:#000;
+  font-weight:700;
+  cursor:pointer;
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<header>
+  <h1>Gold · Silver · Crypto</h1>
+  <p>India Market · Real-time reference</p>
+</header>
+
+<div class="datetime" id="datetime">—</div>
+
+<!-- ASSET SELECT -->
+<div class="pills" id="assetPills">
+  <button class="active" onclick="selectAsset(this,'XAU','Gold','metal')">Gold</button>
+  <button onclick="selectAsset(this,'XAG','Silver','metal')">Silver</button>
+  <button onclick="selectAsset(this,'XPT','Platinum','metal')">Platinum</button>
+  <button onclick="selectAsset(this,'XPD','Palladium','metal')">Palladium</button>
+  <button onclick="selectAsset(this,'HG','Copper','metal')">Copper</button>
+  <button onclick="selectAsset(this,'BTC','Bitcoin','crypto')">Bitcoin</button>
+  <button onclick="selectAsset(this,'ETH','Ethereum','crypto')">Ethereum</button>
+</div>
+
+<!-- MODE -->
+<div class="pills" id="modeToggle">
+  <button class="active" onclick="setMode(this,'india')">India Market</button>
+  <button onclick="setMode(this,'spot')">Spot</button>
+</div>
+
+<!-- WEIGHT -->
+<div class="pills" id="weightToggle"></div>
+
+<!-- PRICE CARD -->
+<div class="card">
+  <div class="asset" id="assetName">Gold</div>
+  <div class="price" id="price">₹ --</div>
+
+  <div class="sub gold-only">
+    <div class="row"><span>24K</span><span id="k24">--</span></div>
+    <div class="row"><span>22K</span><span id="k22">--</span></div>
+    <div class="row"><span>18K</span><span id="k18">--</span></div>
+  </div>
+</div>
+
+<!-- CHARTS -->
+<div class="charts">
+  <div class="chart-box">
+    <div class="chart-title">Daily Price</div>
+    <canvas id="dailyChart"></canvas>
+  </div>
+  <div class="chart-box">
+    <div class="chart-title">Monthly Average</div>
+    <canvas id="monthlyChart"></canvas>
+  </div>
+</div>
+
+<!-- ✅ EXPORT BUTTON -->
+<div class="export">
+  <button onclick="exportToPDF()">Export Prices to PDF</button>
+</div>
+
+</div>
+
+<script>
+const API="https://api.gold-api.com/price/";
+const FX="https://api.frankfurter.app/latest?from=USD&to=INR";
+const OZ=31.1035, DUTY=1.06, GST=1.03;
+
+let symbol="XAU", name="Gold", type="metal", mode="india", weight=1;
+let dailyChart, monthlyChart;
+
+function formatINR(value){
+  return "₹" + value.toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+}
+
+/* TIME */
+function updateDateTime(){
+  const now=new Date();
+  datetime.innerText =
+    now.toLocaleDateString(undefined,{weekday:"long",year:"numeric",month:"long",day:"numeric"})
+    +"  |  "+now.toLocaleTimeString();
+}
+
+/* API */
+async function inr(){return (await (await fetch(FX)).json()).rates.INR;}
+async function usd(sym){return (await (await fetch(API+sym)).json()).price;}
+
+/* UI helpers */
+function setActive(container,btn){
+  container.querySelectorAll("button").forEach(b=>b.classList.remove("active"));
+  btn.classList.add("active");
+}
+function showGold(show){
+  document.querySelectorAll(".gold-only").forEach(e=>e.style.display=show?"block":"none");
+}
+
+/* WEIGHTS */
+function renderWeights(){
+  weightToggle.innerHTML="";
+  if(type==="crypto") return;
+
+  let opts=[{v:1,t:"1 g"}];
+  if(symbol==="XAU") opts.push({v:8,t:"8 g"});
+  if(symbol==="XAG") opts.push({v:1000,t:"1 kg"});
+
+  opts.forEach(o=>{
+    const b=document.createElement("button");
+    b.textContent=o.t;
+    if(weight===o.v) b.classList.add("active");
+    b.onclick=()=>{
+      weight=o.v;
+      renderWeights();
+      update();
+    };
+    weightToggle.appendChild(b);
+  });
+}
+
+/* SELECT */
+function selectAsset(btn,sym,n,t){
+  setActive(assetPills,btn);
+  symbol=sym; name=n; type=t;
+  weight=1;
+
+  assetName.innerText=n;
+  showGold(n==="Gold");
+  modeToggle.style.display=t==="crypto"?"none":"flex";
+
+  renderWeights();
+  update();
+}
+function setMode(btn,m){
+  setActive(modeToggle,btn);
+  mode=m;
+  update();
+}
+
+/* STORE DAILY */
+function storeDaily(price){
+  if(mode!=="india"||type!=="metal"||weight!==1) return;
+  const key="prices_"+symbol;
+  const list=JSON.parse(localStorage.getItem(key)||"[]");
+  const d=new Date().toISOString().split("T")[0];
+  if(!list.find(x=>x.date===d)){
+    list.push({date:d,price});
+    localStorage.setItem(key,JSON.stringify(list));
+  }
+}
+
+/* CHARTS */
+function renderCharts(){
+  const data=JSON.parse(localStorage.getItem("prices_"+symbol)||"[]");
+  if(data.length<2) return;
+
+  const labels=data.map(d=>d.date.slice(5));
+  const values=data.map(d=>d.price);
+
+  if(dailyChart) dailyChart.destroy();
+  dailyChart=new Chart(dailyChartEl.getContext("2d"),{
+    type:"line",
+    data:{labels,datasets:[{data:values,borderColor:"#22c55e",fill:false}]},
+    options:{plugins:{legend:{display:false}}}
+  });
+}
+
+/* UPDATE */
+async function update(){
+  updateDateTime();
+
+  const r=await inr();
+  const u=await usd(symbol);
+
+  let base;
+  if(type==="crypto") base=u*r;
+  else{
+    let g=(u/OZ)*r;
+    if(mode==="india") g*=DUTY*GST;
+    base=g;
+  }
+
+  const val=base*weight;
+  price.innerText=formatINR(val);
+
+  if(name==="Gold"){
+    k24.innerText=formatINR(val);
+    k22.innerText=formatINR(val*0.916);
+    k18.innerText=formatINR(val*0.75);
+  }
+
+  storeDaily(base);
+  renderCharts();
+}
+
+/* PDF EXPORT */
+function formatINRForPDF(value){
+  return "Rs. " + value.toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+}
+
+function getDateTimeForPDF(){
+  const d = new Date();
+  return d.toLocaleDateString(undefined,{
+    weekday:"long",
+    year:"numeric",
+    month:"long",
+    day:"numeric"
+  }) + " | " + d.toLocaleTimeString();
+}
+
+async function exportToPDF(){
+  const { jsPDF } = window.jspdf;
+  const doc=new jsPDF();
+  doc.setFont("helvetica", "normal");
+
+  const rate=await inr();
+  let y=20;
+
+  doc.setFontSize(16);
+  doc.text("Metal Prices (India Market)",14,y);
+  y+=8;
+
+  doc.setFontSize(11);
+  doc.text(getDateTimeForPDF(),14,y);
+  y+=10;
+
+  const metals=[
+    {s:"XAU",n:"Gold",w:[1,8]},
+    {s:"XAG",n:"Silver",w:[1,1000]},
+    {s:"XPT",n:"Platinum",w:[1]},
+    {s:"XPD",n:"Palladium",w:[1]},
+    {s:"HG",n:"Copper",w:[1]}
+  ];
+
+  for(const m of metals){
+    const u=await usd(m.s);
+    let base=(u/OZ)*rate*DUTY*GST;
+
+    for(const w of m.w){
+      doc.text(
+        `${m.n}  ${w===1000?"1 kg":w+" g"}  ${formatINRForPDF(base*w)}`,
+        14,y
+      );
+      y+=7;
+    }
+    y+=4;
+  }
+
+  doc.save("metal-prices.pdf");
+}
+
+/* INIT */
+const dailyChartEl=document.getElementById("dailyChart");
+renderWeights();
+update();
+setInterval(update,30000);
+</script>
+</body>
+</html>
