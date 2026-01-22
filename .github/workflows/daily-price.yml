@@ -9,6 +9,10 @@ on:
     - cron: '30 3 1 * *'
   workflow_dispatch:
 
+concurrency:
+  group: metal-prices
+  cancel-in-progress: false
+
 jobs:
   metals:
     runs-on: ubuntu-latest
@@ -38,7 +42,7 @@ jobs:
           OZ=31.1035
           DUTY=1.06
           GST=1.03
-          SILENT_START=17   # 11 PM IST
+          SILENT_START=18   # 11 PM IST
           SILENT_END=0      # 6 AM IST
 
           format_inr() {
