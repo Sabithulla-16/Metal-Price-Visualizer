@@ -30,6 +30,7 @@ jobs:
           DAY=$(date -u +"%w")
           DAY_OF_MONTH=$(date -u +"%d")
           FILE=data/daily_prices.json
+          ALERT_FILE=data/last_alert_prices.json
 
           OZ=31.1035
           DUTY=1.06
@@ -49,8 +50,8 @@ jobs:
           PALLADIUM=$(echo "scale=2; ($PALLADIUM_USD/$OZ)*$INR*$DUTY*$GST" | bc)
           COPPER=$(echo "scale=2; ($COPPER_USD/$OZ)*$INR*$DUTY*$GST" | bc)
 
-          GOLD_OLD=$(jq -r ".\"$DATE\".gold // empty" "$FILE")
-          SILVER_OLD=$(jq -r ".\"$DATE\".silver // empty" "$FILE")
+          GOLD_OLD=$(jq -r '.gold // 0' "$ALERT_FILE")
+          SILVER_OLD=$(jq -r '.silver // 0' "$ALERT_FILE")
 
           if [ "$GOLD_OLD" != "" ]; then
             DIFF=$(echo "$GOLD - $GOLD_OLD" | bc)
@@ -77,6 +78,9 @@ jobs:
                 --data-urlencode text="$MESSAGE"
             fi
           fi
+
+          jq ".gold = $GOLD | .silver = $SILVER" "$ALERT_FILE" > temp_alert.json
+          mv temp_alert.json "$ALERT_FILE"
 
           if [ "$HOUR" = "03" ]; then
             MESSAGE="📊 Daily Metal Prices (1g)"
