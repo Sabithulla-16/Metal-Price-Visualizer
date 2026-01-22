@@ -1,0 +1,45 @@
+name: Save Daily Metal Prices
+
+on:
+  schedule:
+    - cron: '30 18 * * *'  # 12:00 AM IST
+  workflow_dispatch:
+
+jobs:
+  fetch-prices:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install jq
+        run: sudo apt-get install jq -y
+
+      - name: Fetch prices & save
+        run: |
+          DATE=$(date -u +"%Y-%m-%d")
+
+          GOLD=$(curl -s https://api.gold-api.com/price/XAU | jq .price)
+          SILVER=$(curl -s https://api.gold-api.com/price/XAG | jq .price)
+          PLATINUM=$(curl -s https://api.gold-api.com/price/XPT | jq .price)
+          PALLADIUM=$(curl -s https://api.gold-api.com/price/XPD | jq .price)
+          COPPER=$(curl -s https://api.gold-api.com/price/HG | jq .price)
+
+          jq ".\"$DATE\" = {
+            \"gold\": $GOLD,
+            \"silver\": $SILVER,
+            \"platinum\": $PLATINUM,
+            \"palladium\": $PALLADIUM,
+            \"copper\": $COPPER
+          }" data/daily_prices.json > temp.json
+
+          mv temp.json data/daily_prices.json
+
+      - name: Commit & push
+        run: |
+          git config user.name github-actions
+          git config user.email actions@github.com
+          git add data/daily_prices.json
+          git commit -m "Daily price update"
+          git push
