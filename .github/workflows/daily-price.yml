@@ -41,6 +41,10 @@ jobs:
           SILENT_START=17   # 11 PM IST
           SILENT_END=0      # 6 AM IST
 
+          format_inr() {
+            printf "%'.2f" "$1"
+          }
+
           INR=$(curl -s "https://api.frankfurter.app/latest?from=USD&to=INR" | jq .rates.INR)
 
           GOLD_USD=$(curl -s https://api.gold-api.com/price/XAU | jq .price)
@@ -60,46 +64,51 @@ jobs:
           COPPER=$(echo "scale=2; ($COPPER_USD/$OZ)*$INR*$DUTY*$GST" | bc)
 
           
-          if [ "$GOLD_OLD" != "" ]; then
-            DIFF=$(echo "$GOLD - $GOLD_OLD" | bc)
-          
-            if (( $(echo "$DIFF > 0" | bc -l) )); then
-              ARROW="🔺"
-            elif (( $(echo "$DIFF < 0" | bc -l) )); then
-              ARROW="🔻"
-            else
-              ARROW="➖"
-            fi
-          
-            if ! { [ "$HOUR" -ge "$SILENT_START" ] || [ "$HOUR" -lt 6 ]; }; then
-              MESSAGE="$ARROW Gold Price Alert"
-              MESSAGE="$MESSAGE"$'\n'"1g: ₹$GOLD (Prev ₹$GOLD_OLD)"
-              MESSAGE="$MESSAGE"$'\n'"8g: ₹$GOLD_8G (Prev ₹$GOLD_OLD_8G)"
-          
-              curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
-                -d chat_id="$CHAT_ID" \
-                --data-urlencode text="$MESSAGE"
-            fi
-          fi
+          # --- Combined 10-minute Alert (Gold + Silver) ---
 
-          if [ "$SILVER_OLD" != "" ]; then
-            DIFF=$(echo "$SILVER - $SILVER_OLD" | bc)
-            
-            if (( $(echo "$DIFF > 0" | bc -l) )); then
-              ARROW="🔺"
-            elif (( $(echo "$DIFF < 0" | bc -l) )); then
-              ARROW="🔻"
-            else
-              ARROW="➖"
-            fi
-            if ! { [ "$HOUR" -ge "$SILENT_START" ] || [ "$HOUR" -lt 6 ]; }; then
-              MESSAGE="$ARROW Silver Price Alert"
-              MESSAGE="$MESSAGE"$'\n'"1g: ₹$SILVER (Prev ₹$SILVER_OLD)"
-              MESSAGE="$MESSAGE"$'\n'"1kg: ₹$SILVER_1KG (Prev ₹$SILVER_OLD_1KG)"
-              curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
-                -d chat_id="$CHAT_ID" \
-                --data-urlencode text="$MESSAGE"
-            fi
+          DIFF_GOLD=$(echo "$GOLD - $GOLD_OLD" | bc)
+          DIFF_SILVER=$(echo "$SILVER - $SILVER_OLD" | bc)
+          
+          # Arrows
+          if (( $(echo "$DIFF_GOLD > 0" | bc -l) )); then
+            GOLD_ARROW="🔺"
+          elif (( $(echo "$DIFF_GOLD < 0" | bc -l) )); then
+            GOLD_ARROW="🔻"
+          else
+            GOLD_ARROW="➖"
+          fi
+          
+          if (( $(echo "$DIFF > 0" | bc -l) )); then
+            ARROW="🔴📈"
+          elif (( $(echo "$DIFF < 0" | bc -l) )); then
+            ARROW="🟢📉"
+          else
+            ARROW="⚪➖"
+          fi
+          
+          # Derived prices
+          GOLD_8G=$(echo "scale=2; $GOLD * 8" | bc)
+          GOLD_OLD_8G=$(echo "scale=2; $GOLD_OLD * 8" | bc)
+          
+          SILVER_1KG=$(echo "scale=2; $SILVER * 1000" | bc)
+          SILVER_OLD_1KG=$(echo "scale=2; $SILVER_OLD * 1000" | bc)
+          
+          # Silent night mode (11 PM – 6 AM IST)
+          if ! { [ "$HOUR" -ge 17 ] || [ "$HOUR" -lt 6 ]; }; then
+          
+            MESSAGE="🔔 Metal Price Update (10 mins)"
+          
+            MESSAGE="$MESSAGE"$'\n\n'"🥇 Gold"
+            MESSAGE="$MESSAGE"$'\n'"$GOLD_ARROW 1g: ₹$(format_inr "$GOLD")  (Δ ₹$(format_inr "$DIFF_GOLD"))"
+            MESSAGE="$MESSAGE"$'\n'"$GOLD_ARROW 8g: ₹$(format_inr "$GOLD_8G")  (Δ ₹$(format_inr "$(echo "$DIFF_GOLD * 8" | bc)"))"
+          
+            MESSAGE="$MESSAGE"$'\n\n'"🥈 Silver"
+            MESSAGE="$MESSAGE"$'\n'"$SILVER_ARROW 1g: ₹$(format_inr "$SILVER")  (Δ ₹$(format_inr "$DIFF_SILVER"))"
+            MESSAGE="$MESSAGE"$'\n'"$SILVER_ARROW 1kg: ₹$(format_inr "$SILVER_1KG")  (Δ ₹$(format_inr "$(echo "$DIFF_SILVER * 1000" | bc)"))"
+          
+            curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
+              -d chat_id="$CHAT_ID" \
+              --data-urlencode text="$MESSAGE"
           fi
 
           jq ".gold = $GOLD | .silver = $SILVER" "$ALERT_FILE" > temp_alert.json
@@ -114,18 +123,48 @@ jobs:
             PALLADIUM_Y=$(jq -r ".\"$YESTERDAY\".palladium // 0" "$FILE")
             COPPER_Y=$(jq -r ".\"$YESTERDAY\".copper // 0" "$FILE")
             
-            goldArrow=$([ "$(echo "$GOLD > $GOLD_Y" | bc)" -eq 1 ] && echo "🔺" || echo "🔻")
-            silverArrow=$([ "$(echo "$SILVER > $SILVER_Y" | bc)" -eq 1 ] && echo "🔺" || echo "🔻")
-            platinumArrow=$([ "$(echo "$PLATINUM > $PLATINUM_Y" | bc)" -eq 1 ] && echo "🔺" || echo "🔻")
-            palladiumArrow=$([ "$(echo "$PALLADIUM > $PALLADIUM_Y" | bc)" -eq 1 ] && echo "🔺" || echo "🔻")
-            copperArrow=$([ "$(echo "$COPPER > $COPPER_Y" | bc)" -eq 1 ] && echo "🔺" || echo "🔻")
-            MESSAGE="📊 Daily Metal Prices (1g)"
+            goldArrow=$(
+              if (( $(echo "$GOLD > $GOLD_Y" | bc -l) )); then echo "🔴📈"
+              elif (( $(echo "$GOLD < $GOLD_Y" | bc -l) )); then echo "🟢📉"
+              else echo "⚪➖"; fi
+            )
+            
+            silverArrow=$(
+              if (( $(echo "$SILVER > $SILVER_Y" | bc -l) )); then echo "🔴📈"
+              elif (( $(echo "$SILVER < $SILVER_Y" | bc -l) )); then echo "🟢📉"
+              else echo "⚪➖"; fi
+            )
+            
+            platinumArrow=$(
+              if (( $(echo "$PLATINUM > $PLATINUM_Y" | bc -l) )); then echo "🔴📈"
+              elif (( $(echo "$PLATINUM < $PLATINUM_Y" | bc -l) )); then echo "🟢📉"
+              else echo "⚪➖"; fi
+            )
+            
+            palladiumArrow=$(
+              if (( $(echo "$PALLADIUM > $PALLADIUM_Y" | bc -l) )); then echo "🔴📈"
+              elif (( $(echo "$PALLADIUM < $PALLADIUM_Y" | bc -l) )); then echo "🟢📉"
+              else echo "⚪➖"; fi
+            )
+            
+            copperArrow=$(
+              if (( $(echo "$COPPER > $COPPER_Y" | bc -l) )); then echo "🔴📈"
+              elif (( $(echo "$COPPER < $COPPER_Y" | bc -l) )); then echo "🟢📉"
+              else echo "⚪➖"; fi
+            )
+            MESSAGE="📊 Daily Metal Prices"
 
-            MESSAGE="$MESSAGE"$'\n\n'"$goldArrow Gold: ₹$GOLD (Δ ₹$(echo "$GOLD - $GOLD_Y" | bc))"
-            MESSAGE="$MESSAGE"$'\n'"$silverArrow Silver: ₹$SILVER (Δ ₹$(echo "$SILVER - $SILVER_Y" | bc))"
-            MESSAGE="$MESSAGE"$'\n'"$platinumArrow Platinum: ₹$PLATINUM (Δ ₹$(echo "$PLATINUM - $PLATINUM_Y" | bc))"
-            MESSAGE="$MESSAGE"$'\n'"$palladiumArrow Palladium: ₹$PALLADIUM (Δ ₹$(echo "$PALLADIUM - $PALLADIUM_Y" | bc))"
-            MESSAGE="$MESSAGE"$'\n'"$copperArrow Copper: ₹$COPPER (Δ ₹$(echo "$COPPER - $COPPER_Y" | bc))"
+            MESSAGE="$MESSAGE"$'\n\n'"🥇 Gold"
+            MESSAGE="$MESSAGE"$'\n'"$goldArrow 1g: ₹$(format_inr "$GOLD")  (Δ ₹$(format_inr "$(echo "$GOLD - $GOLD_Y" | bc)"))"
+            MESSAGE="$MESSAGE"$'\n'"$goldArrow 8g: ₹$(format_inr "$(echo "$GOLD * 8" | bc)")"
+            
+            MESSAGE="$MESSAGE"$'\n\n'"🥈 Silver"
+            MESSAGE="$MESSAGE"$'\n'"$silverArrow 1g: ₹$(format_inr "$SILVER")  (Δ ₹$(format_inr "$(echo "$SILVER - $SILVER_Y" | bc)"))"
+            MESSAGE="$MESSAGE"$'\n'"$silverArrow 1kg: ₹$(format_inr "$(echo "$SILVER * 1000" | bc)")"
+            
+            MESSAGE="$MESSAGE"$'\n\n'"🔩 Platinum: ₹$(format_inr "$PLATINUM")"
+            MESSAGE="$MESSAGE"$'\n'"⚙️ Palladium: ₹$(format_inr "$PALLADIUM")"
+            MESSAGE="$MESSAGE"$'\n'"🧲 Copper: ₹$(format_inr "$COPPER")"
             curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
               -d chat_id="$CHAT_ID" \
               --data-urlencode text="$MESSAGE"
@@ -146,10 +185,14 @@ jobs:
             GOLD_PCT=$(echo "scale=2; ($GOLD_DIFF / $GOLD_START) * 100" | bc)
             SILVER_PCT=$(echo "scale=2; ($SILVER_DIFF / $SILVER_START) * 100" | bc)
 
-            MESSAGE="📈 Weekly Summary (1g)"
+            MESSAGE="📈 Weekly Metal Summary"
             MESSAGE="$MESSAGE"$'\n'"From: $(date -d "$START_DATE" +%d/%m/%Y) → $(date -d "$END_DATE" +%d/%m/%Y)"
-            MESSAGE="$MESSAGE"$'\n\n'"Gold: ₹$GOLD_DIFF ($GOLD_PCT%)"
-            MESSAGE="$MESSAGE"$'\n'"Silver: ₹$SILVER_DIFF ($SILVER_PCT%)"
+            
+            MESSAGE="$MESSAGE"$'\n\n'"🥇 Gold"
+            MESSAGE="$MESSAGE"$'\n'"Δ ₹$(format_inr "$GOLD_DIFF")  ($GOLD_PCT%)"
+            
+            MESSAGE="$MESSAGE"$'\n\n'"🥈 Silver"
+            MESSAGE="$MESSAGE"$'\n'"Δ ₹$(format_inr "$SILVER_DIFF")  ($SILVER_PCT%)"
 
             curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
               -d chat_id="$CHAT_ID" \
@@ -171,10 +214,14 @@ jobs:
             GOLD_PCT=$(echo "scale=2; ($GOLD_DIFF / $GOLD_START) * 100" | bc)
             SILVER_PCT=$(echo "scale=2; ($SILVER_DIFF / $SILVER_START) * 100" | bc)
 
-            MESSAGE="📅 Monthly Summary (1g)"
+            MESSAGE="📅 Monthly Metal Summary"
             MESSAGE="$MESSAGE"$'\n'"From: $(date -d "$START_DATE" +%d/%m/%Y) → $(date -d "$END_DATE" +%d/%m/%Y)"
-            MESSAGE="$MESSAGE"$'\n\n'"Gold: ₹$GOLD_DIFF ($GOLD_PCT%)"
-            MESSAGE="$MESSAGE"$'\n'"Silver: ₹$SILVER_DIFF ($SILVER_PCT%)"
+            
+            MESSAGE="$MESSAGE"$'\n\n'"🥇 Gold"
+            MESSAGE="$MESSAGE"$'\n'"Δ ₹$(format_inr "$GOLD_DIFF")  ($GOLD_PCT%)"
+            
+            MESSAGE="$MESSAGE"$'\n\n'"🥈 Silver"
+            MESSAGE="$MESSAGE"$'\n'"Δ ₹$(format_inr "$SILVER_DIFF")  ($SILVER_PCT%)"
 
             curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
               -d chat_id="$CHAT_ID" \
