@@ -5,6 +5,8 @@ on:
     - cron: '*/5 * * * *'    # Every 5 minutes → Gold & Silver alerts
     - cron: '30 18 * * *'    # 12:00 AM IST → Daily save
     - cron: '30 3 * * *'     # 9:00 AM IST → Daily summary
+    - cron: '30 3 * * 0'     # Weekly summary (Sunday 9 AM IST)
+    - cron: '30 3 1 * *'     # Monthly summary (1st day, 9 AM IST)
   workflow_dispatch:
 
 jobs:
@@ -25,6 +27,8 @@ jobs:
         run: |
           DATE=$(date -u +"%Y-%m-%d")
           HOUR=$(date -u +"%H")
+          DAY=$(date -u +"%w")       # 0 = Sunday
+          DAY_OF_MONTH=$(date -u +"%d")
           FILE=data/daily_prices.json
 
           # Fetch prices (1g base)
@@ -58,14 +62,88 @@ jobs:
             fi
           fi
 
-          # 📩 Daily summary at 9 AM IST (03 UTC)
+          # 📩 Daily summary at 9 AM IST
           if [ "$HOUR" = "03" ]; then
             curl -s -X POST https://api.telegram.org/bot$BOT_TOKEN/sendMessage \
               -d chat_id=$CHAT_ID \
               -d text="📊 Daily Metal Prices (1g)\n\nGold: ₹$GOLD\nSilver: ₹$SILVER\nPlatinum: ₹$PLATINUM\nPalladium: ₹$PALLADIUM\nCopper: ₹$COPPER"
           fi
 
-          # 💾 Daily save (runs safely every time, overwrites same date)
+          # 📈 Weekly summary + Worst/Best day (Sunday only)
+          if [ "$DAY" = "0" ] && [ "$HOUR" = "03" ]; then
+            END_DATE=$(date -u +"%Y-%m-%d")
+            START_DATE=$(date -u -d "7 days ago" +"%Y-%m-%d")
+
+            GOLD_START=$(jq -r ".\"$START_DATE\".gold // empty" $FILE)
+            GOLD_END=$(jq -r ".\"$END_DATE\".gold // empty" $FILE)
+            SILVER_START=$(jq -r ".\"$START_DATE\".silver // empty" $FILE)
+            SILVER_END=$(jq -r ".\"$END_DATE\".silver // empty" $FILE)
+
+            GOLD_DIFF=$(echo "$GOLD_END - $GOLD_START" | bc)
+            SILVER_DIFF=$(echo "$SILVER_END - $SILVER_START" | bc)
+
+            GOLD_PCT=$(echo "scale=2; ($GOLD_DIFF / $GOLD_START) * 100" | bc)
+            SILVER_PCT=$(echo "scale=2; ($SILVER_DIFF / $SILVER_START) * 100" | bc)
+
+            WORST_DAY=""
+            BEST_DAY=""
+
+            for i in {1..7}; do
+              D1=$(date -u -d "$i days ago" +"%Y-%m-%d")
+              D2=$(date -u -d "$((i-1)) days ago" +"%Y-%m-%d")
+
+              G1=$(jq -r ".\"$D1\".gold // empty" $FILE)
+              G2=$(jq -r ".\"$D2\".gold // empty" $FILE)
+              S1=$(jq -r ".\"$D1\".silver // empty" $FILE)
+              S2=$(jq -r ".\"$D2\".silver // empty" $FILE)
+
+              if [ "$G1" != "" ] && [ "$G2" != "" ]; then
+                GD=$(echo "$G2 - $G1" | bc)
+                if (( $(echo "${GD#-} > 1000" | bc -l) )); then
+                  WORST_DAY="$D2 (Gold ₹$GD)"
+                fi
+                if (( $(echo "$GD < 0" | bc -l) )); then
+                  BEST_DAY="$D2 (Gold drop ₹$GD)"
+                fi
+              fi
+
+              if [ "$S1" != "" ] && [ "$S2" != "" ]; then
+                SD=$(echo "$S2 - $S1" | bc)
+                if (( $(echo "${SD#-} > 20" | bc -l) )); then
+                  WORST_DAY="$D2 (Silver ₹$SD)"
+                fi
+                if (( $(echo "$SD < 0" | bc -l) )); then
+                  BEST_DAY="$D2 (Silver drop ₹$SD)"
+                fi
+              fi
+            done
+
+            curl -s -X POST https://api.telegram.org/bot$BOT_TOKEN/sendMessage \
+              -d chat_id=$CHAT_ID \
+              -d text="📈 Weekly Summary (1g)\nFrom: $(date -d $START_DATE +%d/%m/%Y) → $(date -d $END_DATE +%d/%m/%Y)\n\nGold: ₹$GOLD_DIFF ($GOLD_PCT%)\nSilver: ₹$SILVER_DIFF ($SILVER_PCT%)\n\n❌ Worst Day: ${WORST_DAY:-None}\n✅ Best Day: ${BEST_DAY:-None}"
+          fi
+
+          # 📅 Monthly summary (1st day only)
+          if [ "$DAY_OF_MONTH" = "01" ] && [ "$HOUR" = "03" ]; then
+            END_DATE=$(date -u -d "yesterday" +"%Y-%m-%d")
+            START_DATE=$(date -u -d "$(date -u +%Y-%m-01)" +"%Y-%m-%d")
+
+            GOLD_START=$(jq -r ".\"$START_DATE\".gold // empty" $FILE)
+            GOLD_END=$(jq -r ".\"$END_DATE\".gold // empty" $FILE)
+            SILVER_START=$(jq -r ".\"$START_DATE\".silver // empty" $FILE)
+            SILVER_END=$(jq -r ".\"$END_DATE\".silver // empty" $FILE)
+
+            GOLD_DIFF=$(echo "$GOLD_END - $GOLD_START" | bc)
+            GOLD_PCT=$(echo "scale=2; ($GOLD_DIFF / $GOLD_START) * 100" | bc)
+            SILVER_DIFF=$(echo "$SILVER_END - $SILVER_START" | bc)
+            SILVER_PCT=$(echo "scale=2; ($SILVER_DIFF / $SILVER_START) * 100" | bc)
+
+            curl -s -X POST https://api.telegram.org/bot$BOT_TOKEN/sendMessage \
+              -d chat_id=$CHAT_ID \
+              -d text="📅 Monthly Summary (1g)\nFrom: $(date -d $START_DATE +%d/%m/%Y) → $(date -d $END_DATE +%d/%m/%Y)\n\nGold: ₹$GOLD_DIFF ($GOLD_PCT%)\nSilver: ₹$SILVER_DIFF ($SILVER_PCT%)"
+          fi
+
+          # 💾 Daily save (source of truth)
           jq ".\"$DATE\" = {
             \"gold\": $GOLD,
             \"silver\": $SILVER,
