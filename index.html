@@ -198,6 +198,7 @@ let symbol="XAU",name="Gold",type="metal",mode="india",weight=1;
 let dailyChart,monthlyChart;
 let previousPrices={};
 let lastTrend = {};
+let yesterdayBasePrice = null;
 
 window.APP_DATA={goldPriceINR:null,lastUpdated:null};
 
@@ -245,19 +246,50 @@ function storeDaily(price){
   }
 }
 
+async function getSavedDailyPrices(sym) {
+  try {
+    const res = await fetch("./data/daily_prices.json");
+    const data = await res.json();
+
+    return Object.entries(data)
+      .map(([date, prices]) => ({
+        date,
+        price: prices[sym.toLowerCase()]
+      }))
+      .filter(x => x.price !== undefined);
+  } catch (e) {
+    return [];
+  }
+}
+
 /* ✅ RENDER CHARTS (YOUR SAME LOGIC) */
-function renderCharts(){
-  const data=JSON.parse(localStorage.getItem("prices_"+symbol)||"[]");
-  if(data.length<2) return;
+async function renderCharts(){
+  const data = await getSavedDailyPrices(symbol);
+  if (data.length < 2) return;
 
-  const labels=data.map(d=>d.date.slice(5));
-  const values=data.map(d=>d.price);
+  const labels = data.map(d => d.date.slice(5));
+  const values = data.map(d => d.price);
 
-  if(dailyChart) dailyChart.destroy();
-  dailyChart=new Chart(dailyChartEl.getContext("2d"),{
-    type:"line",
-    data:{labels,datasets:[{data:values,borderColor:"#22c55e",fill:false}]},
-    options:{plugins:{legend:{display:false}}}
+  if (dailyChart) dailyChart.destroy();
+
+  dailyChart = new Chart(dailyChartEl.getContext("2d"), {
+    type: "line",
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        borderColor: "#22c55e",
+        fill: false,
+        tension: 0.3
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: "#94a3b8" } },
+        y: { ticks: { color: "#94a3b8" } }
+      }
+    }
   });
 }
 
@@ -272,12 +304,47 @@ function selectAsset(btn,s,n,t){
 
 function setMode(btn,m){setActive(modeToggle,btn);mode=m;update();}
 
+async function getYesterdayBasePrice(sym) {
+  try {
+    const res = await fetch("./data/daily_prices.json");
+    const data = await res.json();
+
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    const key = d.toISOString().split("T")[0];
+
+    return data[key]?.[sym.toLowerCase()] ?? null;
+  } catch (e) {
+    return null;
+  }
+}
+
 async function update(){
   updateDateTime();
   const r=await inr(),u=await usd(symbol);
   let base=type==="crypto"?u*r:((u/OZ)*r*(mode==="india"?DUTY*GST:1));
   const v=base*weight;
   price.innerText = formatINR(v);
+  
+  /* 🔥 YESTERDAY COMPARISON (ONLY ON FIRST LOAD) */
+  if (yesterdayBasePrice === null && mode==="india" && type==="metal" && weight===1) {
+    yesterdayBasePrice = await getYesterdayBasePrice(symbol);
+
+    if (yesterdayBasePrice !== null) {
+      const diff = (base - yesterdayBasePrice) * weight;
+
+      if (diff > 0) {
+        price.classList.add("up");
+        delta.classList.add("up");
+        delta.innerText = "+₹" + diff.toFixed(2);
+      } else if (diff < 0) {
+        price.classList.add("down");
+        delta.classList.add("down");
+        delta.innerText = "-₹" + Math.abs(diff).toFixed(2);
+      }
+    }
+  }
+
   const key=symbol+"_"+weight+"_"+mode;
   const prev=previousPrices[key];
 
