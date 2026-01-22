@@ -1,45 +1,85 @@
-name: Save Daily Metal Prices
+name: Metal Prices Automation
 
 on:
   schedule:
-    - cron: '30 18 * * *'  # 12:00 AM IST
+    - cron: '*/5 * * * *'    # Every 5 minutes → Gold & Silver alerts
+    - cron: '30 18 * * *'    # 12:00 AM IST → Daily save
+    - cron: '30 3 * * *'     # 9:00 AM IST → Daily summary
   workflow_dispatch:
 
 jobs:
-  fetch-prices:
+  metals:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Install jq
-        run: sudo apt-get install jq -y
+      - name: Install jq & bc
+        run: sudo apt-get update && sudo apt-get install jq bc -y
 
-      - name: Fetch prices & save
+      - name: Fetch prices, alert & save
+        env:
+          BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           DATE=$(date -u +"%Y-%m-%d")
+          HOUR=$(date -u +"%H")
+          FILE=data/daily_prices.json
 
+          # Fetch prices (1g base)
           GOLD=$(curl -s https://api.gold-api.com/price/XAU | jq .price)
           SILVER=$(curl -s https://api.gold-api.com/price/XAG | jq .price)
           PLATINUM=$(curl -s https://api.gold-api.com/price/XPT | jq .price)
           PALLADIUM=$(curl -s https://api.gold-api.com/price/XPD | jq .price)
           COPPER=$(curl -s https://api.gold-api.com/price/HG | jq .price)
 
+          # Read previous saved prices
+          GOLD_OLD=$(jq -r ".\"$DATE\".gold // empty" $FILE)
+          SILVER_OLD=$(jq -r ".\"$DATE\".silver // empty" $FILE)
+
+          # 🔔 Gold alert (every 5 minutes)
+          if [ "$GOLD_OLD" != "" ]; then
+            DIFF=$(echo "$GOLD - $GOLD_OLD" | bc)
+            if (( $(echo "$DIFF != 0" | bc -l) )); then
+              curl -s -X POST https://api.telegram.org/bot$BOT_TOKEN/sendMessage \
+                -d chat_id=$CHAT_ID \
+                -d text="🚨 Gold (1g) Update\nPrevious: ₹$GOLD_OLD\nCurrent: ₹$GOLD"
+            fi
+          fi
+
+          # 🔔 Silver alert (every 5 minutes)
+          if [ "$SILVER_OLD" != "" ]; then
+            DIFF=$(echo "$SILVER - $SILVER_OLD" | bc)
+            if (( $(echo "$DIFF != 0" | bc -l) )); then
+              curl -s -X POST https://api.telegram.org/bot$BOT_TOKEN/sendMessage \
+                -d chat_id=$CHAT_ID \
+                -d text="🚨 Silver (1g) Update\nPrevious: ₹$SILVER_OLD\nCurrent: ₹$SILVER"
+            fi
+          fi
+
+          # 📩 Daily summary at 9 AM IST (03 UTC)
+          if [ "$HOUR" = "03" ]; then
+            curl -s -X POST https://api.telegram.org/bot$BOT_TOKEN/sendMessage \
+              -d chat_id=$CHAT_ID \
+              -d text="📊 Daily Metal Prices (1g)\n\nGold: ₹$GOLD\nSilver: ₹$SILVER\nPlatinum: ₹$PLATINUM\nPalladium: ₹$PALLADIUM\nCopper: ₹$COPPER"
+          fi
+
+          # 💾 Daily save (runs safely every time, overwrites same date)
           jq ".\"$DATE\" = {
             \"gold\": $GOLD,
             \"silver\": $SILVER,
             \"platinum\": $PLATINUM,
             \"palladium\": $PALLADIUM,
             \"copper\": $COPPER
-          }" data/daily_prices.json > temp.json
+          }" $FILE > temp.json
 
-          mv temp.json data/daily_prices.json
+          mv temp.json $FILE
 
       - name: Commit & push
         run: |
           git config user.name github-actions
           git config user.email actions@github.com
           git add data/daily_prices.json
-          git commit -m "Daily price update"
+          git diff --cached --quiet || git commit -m "Metal prices update"
           git push
