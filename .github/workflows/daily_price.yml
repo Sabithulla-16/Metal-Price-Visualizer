@@ -3,7 +3,7 @@ name: Metal Prices Automation
 on:
   schedule:
     - cron: '*/10 * * * *'
-    - cron: '31 18 * * *'
+    - cron: '30 18 * * *'
     - cron: '30 3 * * *'
     - cron: '30 3 * * 0'
     - cron: '30 3 1 * *'
@@ -29,6 +29,7 @@ jobs:
           BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
+          echo "CRON DEBUG → triggered at UTC $(date -u)"
           set -x
           DATE=$(date -u +"%Y-%m-%d")
           HOUR=$(date -u +"%H")
