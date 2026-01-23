@@ -29,6 +29,7 @@ jobs:
           BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
+          set -x
           DATE=$(date -u +"%Y-%m-%d")
           HOUR=$(date -u +"%H")
           DAY=$(date -u +"%w")
@@ -43,7 +44,6 @@ jobs:
           DUTY=1.06
           GST=1.03
           SILENT_START=18   # 11 PM IST
-          SILENT_END=0      # 6 AM IST
 
           format_inr() {
             printf "%'.2f" "$1"
@@ -75,11 +75,11 @@ jobs:
           
           # Arrows
           if (( $(echo "$DIFF_GOLD > 0" | bc -l) )); then
-            GOLD_ARROW="🔺"
+            GOLD_ARROW="🔴📈"
           elif (( $(echo "$DIFF_GOLD < 0" | bc -l) )); then
-            GOLD_ARROW="🔻"
+            GOLD_ARROW="🟢📉"
           else
-            GOLD_ARROW="➖"
+            GOLD_ARROW="⚪➖"
           fi
           
           if (( $(echo "$DIFF_SILVER > 0" | bc -l) )); then
@@ -98,7 +98,7 @@ jobs:
           SILVER_OLD_1KG=$(echo "scale=2; $SILVER_OLD * 1000" | bc)
           
           # Silent night mode (11 PM – 6 AM IST)
-          if ! { [ "$HOUR" -ge 17 ] || [ "$HOUR" -lt 6 ]; }; then
+          if ! { [ "$HOUR" -ge "$SILENT_START" ] || [ "$HOUR" -lt 6 ]; }; then
           
             MESSAGE="🔔 Metal Price Update (10 mins)"
           
