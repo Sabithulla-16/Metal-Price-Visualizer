@@ -34,6 +34,7 @@ jobs:
           HOUR=$(date -u +"%H")
           DAY=$(date -u +"%w")
           DAY_OF_MONTH=$(date -u +"%d")
+          echo "DEBUG → UTC hour: $HOUR"
           FILE=data/daily_prices.json
           ALERT_FILE=data/last_alert_prices.json
           [ -f "$ALERT_FILE" ] || echo '{}' > "$ALERT_FILE"
@@ -97,8 +98,8 @@ jobs:
           SILVER_1KG=$(echo "scale=2; $SILVER * 1000" | bc)
           SILVER_OLD_1KG=$(echo "scale=2; $SILVER_OLD * 1000" | bc)
           
-          # Silent night mode (11 PM – 6 AM IST)
-          if ! { [ "$HOUR" -ge "$SILENT_START" ] || [ "$HOUR" -lt 6 ]; }; then
+          # Silent window: 11 PM – 6 AM IST (UTC-based)
+          if ! { [ "$HOUR" -ge "$SILENT_START" ] && [ "$HOUR" -le 23 ] || [ "$HOUR" -eq 0 ]; }; then
           
             MESSAGE="🔔 Metal Price Update (10 mins)"
           
