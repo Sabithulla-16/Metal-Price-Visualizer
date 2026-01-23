@@ -82,12 +82,12 @@ jobs:
             GOLD_ARROW="➖"
           fi
           
-          if (( $(echo "$DIFF > 0" | bc -l) )); then
-            ARROW="🔴📈"
-          elif (( $(echo "$DIFF < 0" | bc -l) )); then
-            ARROW="🟢📉"
+          if (( $(echo "$DIFF_SILVER > 0" | bc -l) )); then
+            SILVER_ARROW="🔴📈"
+          elif (( $(echo "$DIFF_SILVER < 0" | bc -l) )); then
+            SILVER_ARROW="🟢📉"
           else
-            ARROW="⚪➖"
+            SILVER_ARROW="⚪➖"
           fi
           
           # Derived prices
