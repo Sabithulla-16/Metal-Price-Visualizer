@@ -1,458 +1,144 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Market Dashboard</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8">
+  <title>MetalPrice Live - Real-time Precious Metals Tracker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Real-time precious metals and cryptocurrency prices for India market">
+  <meta name="theme-color" content="#0b1020">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%230b1020' width='192' height='192'/><circle cx='96' cy='96' r='70' fill='%2322c55e'/><text x='96' y='120' font-size='80' font-weight='bold' text-anchor='middle' fill='%23000' font-family='Arial'>₹</text></svg>">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect fill='%230b1020' width='180' height='180' rx='40'/><circle cx='90' cy='90' r='65' fill='%2322c55e'/><text x='90' y='115' font-size='75' font-weight='bold' text-anchor='middle' fill='%23000' font-family='Arial'>₹</text></svg>">
 
-<script src="./libs/chart.umd.js"></script>
-<script src="./libs/jspdf.umd.min.js"></script>
+  <!-- Preconnect to APIs and CDNs -->
+  <link rel="preconnect" href="https://api.gold-api.com" crossorigin>
+  <link rel="preconnect" href="https://api.frankfurter.app" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
 
-<style>
-:root{
-  --bg:#0b1020;
-  --glass:rgba(255,255,255,0.08);
-  --border:rgba(255,255,255,0.15);
-  --text:#e5e7eb;
-  --muted:#94a3b8;
-  --accent:#22c55e;
-}
+  <!-- Preload and link external stylesheet -->
+  <link rel="preload" href="./style.css" as="style" onload="this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="./style.css"></noscript>
 
-body{
-  margin:0;
-  background:
-    radial-gradient(1000px 500px at 20% -10%, #1e293b 0%, transparent 60%),
-    radial-gradient(800px 400px at 90% 10%, #312e81 0%, transparent 55%),
-    var(--bg);
-  font-family:system-ui,Segoe UI,sans-serif;
-  color:var(--text);
-}
-
-.container{
-  max-width:1100px;
-  margin:auto;
-  padding:0 18px 40px;
-}
-
-header{
-  padding:56px 0 14px;
-  padding-top:calc(56px + env(safe-area-inset-top));
-  text-align:center;
-}
-header h1{font-size:28px;font-weight:700;}
-header p{color:var(--muted);font-size:14px;}
-
-.datetime{
-  text-align:center;
-  font-size:18px;
-  font-weight:800;
-  margin-bottom:24px;
-}
-
-.pills{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-  justify-content:center;
-  margin-bottom:16px;
-}
-.pills button{
-  padding:10px 18px;
-  border-radius:999px;
-  border:1px solid var(--border);
-  background:rgba(255,255,255,.06);
-  color:var(--text);
-  cursor:pointer;
-}
-.pills button.active{
-  background:#fff;
-  color:#000;
-  font-weight:600;
-}
-
-.card{
-  background:var(--glass);
-  border:1px solid var(--border);
-  backdrop-filter:blur(18px);
-  border-radius:20px;
-  padding:26px;
-  box-shadow:0 25px 60px rgba(0,0,0,.45);
-}
-
-.asset{font-size:18px;font-weight:600;margin-bottom:6px;}
-.price{font-size:40px;font-weight:800;}
-.delta{font-size:16px;margin-top:6px;font-weight:600;}
-
-.price.up,.delta.up{color:#ef4444;}   /* INCREASE → RED */
-.price.down,.delta.down{color:#22c55e;} /* DECREASE → GREEN */
-
-.sub{
-  margin-top:18px;
-  border-top:1px solid var(--border);
-  padding-top:14px;
-}
-.row{
-  display:flex;
-  justify-content:space-between;
-  padding:6px 0;
-  color:var(--muted);
-}
-.row span:last-child{
-  color:var(--text);
-  font-weight:600;
-}
-
-.charts{
-  display:flex;
-  gap:16px;
-  overflow-x:auto;
-  margin-top:28px;
-}
-.chart-box{
-  min-width:90%;
-  background:var(--glass);
-  border:1px solid var(--border);
-  border-radius:20px;
-  padding:14px;
-}
-.chart-title{text-align:center;margin-bottom:10px;font-weight:600;}
-
-.export{
-  margin-top:24px;
-  text-align:center;
-}
-.export button{
-  padding:12px 22px;
-  border-radius:12px;
-  border:none;
-  background:var(--accent);
-  color:#000;
-  font-weight:700;
-  cursor:pointer;
-}
-</style>
+  <!-- Load libraries from CDN (deferred) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
 </head>
-
 <body>
-<div class="container">
 
-<header>
-  <h1>Gold · Silver · Crypto</h1>
-  <p>India Market · Real-time reference</p>
-</header>
+    <div class="offline-overlay" id="offlineOverlay">
+      <div class="offline-icon">📡</div>
+      <div class="offline-text">
+        <h2>You're Offline</h2>
+        <p>Showing cached prices from your last online session</p>
+        <div class="offline-data"><div id="offlineLastUpdate">Last updated: checking...</div></div>
+      </div>
+    </div>
 
-<div class="datetime" id="datetime">—</div>
+    <div class="online-notification" id="onlineNotification">
+      <h2>🎉 Back Online!</h2>
+      <p>Refreshing live prices...</p>
+    </div>
 
-<div class="pills" id="assetPills">
-  <button class="active" onclick="selectAsset(this,'XAU','Gold','metal')">Gold</button>
-  <button onclick="selectAsset(this,'XAG','Silver','metal')">Silver</button>
-  <button onclick="selectAsset(this,'XPT','Platinum','metal')">Platinum</button>
-  <button onclick="selectAsset(this,'XPD','Palladium','metal')">Palladium</button>
-  <button onclick="selectAsset(this,'HG','Copper','metal')">Copper</button>
-  <button onclick="selectAsset(this,'BTC','Bitcoin','crypto')">Bitcoin</button>
-  <button onclick="selectAsset(this,'ETH','Ethereum','crypto')">Ethereum</button>
-</div>
+    <div class="status-notification" id="statusNotification">
+      <div class="status-dot"></div>
+      <span id="statusText">Online</span>
+    </div>
 
-<div class="pills" id="modeToggle">
-  <button class="active" onclick="setMode(this,'india')">India Market</button>
-  <button onclick="setMode(this,'spot')">Spot</button>
-</div>
+    <div class="loading-overlay" id="loadingOverlay">
+      <div class="loader-container">
+        <div class="premium-loader"></div>
+        <div class="loader-text">Fetching Live Prices...</div>
+      </div>
+    </div>
 
-<div class="pills" id="weightToggle"></div>
+    <div class="container">
 
-<div class="card">
-  <div class="asset" id="assetName">Gold</div>
-  <div class="price" id="price">₹ --</div>
-  <div class="delta" id="delta"></div>
+      <header>
+        <div>
+          <h1>METALPRICE LIVE</h1>
+          <p>Real-time Precious Metals Price Tracker</p>
+        </div>
+        <div class="header-actions">
+          <button id="installBtn" class="hidden">Install App</button>
+        </div>
+      </header>
 
-  <div class="sub gold-only">
-    <div class="row"><span>24K</span><span id="k24">--</span></div>
-    <div class="row"><span>22K</span><span id="k22">--</span></div>
-    <div class="row"><span>18K</span><span id="k18">--</span></div>
+      <div class="datetime" id="datetime">—</div>
+
+      <div class="selector-group">
+        <span class="selector-title">Asset</span>
+        <div class="pills" id="assetPills">
+          <button class="active" onclick="selectAsset(this,'XAU','Gold','metal')">Gold</button>
+          <button onclick="selectAsset(this,'XAG','Silver','metal')">Silver</button>
+          <button onclick="selectAsset(this,'XPT','Platinum','metal')">Platinum</button>
+          <button onclick="selectAsset(this,'XPD','Palladium','metal')">Palladium</button>
+          <button onclick="selectAsset(this,'HG','Copper','metal')">Copper</button>
+          <button onclick="selectAsset(this,'BTC','Bitcoin','crypto')">Bitcoin</button>
+          <button onclick="selectAsset(this,'ETH','Ethereum','crypto')">Ethereum</button>
+        </div>
+      </div>
+
+      <div class="selector-group" id="modeGroup" style="display:none;">
+        <span class="selector-title">Type</span>
+        <div class="pills" id="modeToggle">
+          <button class="active" onclick="setMode(this,'india')">India Market</button>
+          <button onclick="setMode(this,'spot')">Spot Price</button>
+        </div>
+      </div>
+
+      <div class="selector-group" id="weightGroup" style="display:none;">
+        <span class="selector-title">Weight</span>
+        <div class="pills" id="weightToggle"></div>
+      </div>
+
+      <div class="main-grid">
+        <div class="price-card">
+          <div class="asset" id="assetName">Gold</div>
+          <div class="price-display">
+            <div class="price" id="price">₹ --</div>
+            <div class="delta" id="delta"></div>
+          </div>
+
+          <div class="purity-grid gold-only" id="puritySection">
+            <div class="purity-item"><div class="label">24K</div><div class="value" id="k24">--</div></div>
+            <div class="purity-item"><div class="label">22K</div><div class="value" id="k22">--</div></div>
+            <div class="purity-item"><div class="label">18K</div><div class="value" id="k18">--</div></div>
+          </div>
+        </div>
+
+        <div class="price-card">
+          <div class="stats-grid">
+            <div class="stat-box"><div class="stat-label" id="usdLabel">Price (1g in USD)</div><div class="stat-value" id="usdPrice">--</div></div>
+            <div class="stat-box"><div class="stat-label" id="inrLabel">Price (1g in INR)</div><div class="stat-value" id="inrPrice">--</div></div>
+          </div>
+
+          <div style="margin-top:20px;padding:16px;border-top:1px solid rgba(255,215,0,0.2);background:rgba(0,0,0,0.3);border-radius:8px;">
+            <div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;font-weight:700;letter-spacing:0.5px;">Status</div>
+            <div style="font-size:15px;font-weight:800;display:flex;align-items:center;gap:8px;"><span id="statusIndicator" style="color:var(--success);">● Live - Online</span></div>
+            <div id="lastUpdateTime" style="font-size:10px;color:var(--muted);margin-top:6px;font-weight:500;">Updated just now</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="charts-section">
+        <div class="charts-title">Price History</div>
+        <div class="charts">
+          <div class="chart-box"><div class="chart-title">Daily Trend</div><canvas id="dailyChart"></canvas></div>
+          <div class="chart-box"><div class="chart-title">Comparison</div><canvas id="monthlyChart"></canvas></div>
+        </div>
+      </div>
+
+      <div class="export-section">
+        <button class="btn-primary" onclick="exportToPDF()">Export PDF</button>
+        <button class="btn-secondary" onclick="copyToClipboard()">Copy</button>
+      </div>
+
   </div>
-</div>
 
-<div class="charts">
-  <div class="chart-box">
-    <div class="chart-title">Daily Price</div>
-    <canvas id="dailyChart"></canvas>
-  </div>
-  <div class="chart-box">
-    <div class="chart-title">Monthly Average</div>
-    <canvas id="monthlyChart"></canvas>
-  </div>
-</div>
-
-<div class="export">
-  <button onclick="exportToPDF()">Export Prices to PDF</button>
-</div>
-
-</div>
-
-<script>
-const API="https://api.gold-api.com/price/";
-const FX="https://api.frankfurter.app/latest?from=USD&to=INR";
-const OZ=31.1035,DUTY=1.06,GST=1.03;
-
-let symbol="XAU",name="Gold",type="metal",mode="india",weight=1;
-let dailyChart,monthlyChart;
-let previousPrices={};
-let lastTrend = {};
-let yesterdayBasePrice = null;
-
-window.APP_DATA={goldPriceINR:null,lastUpdated:null};
-
-function formatINR(v){
-  return "₹"+v.toLocaleString("en-IN",{minimumFractionDigits:2,maximumFractionDigits:2});
-}
-
-function updateDateTime(){
-  const n=new Date();
-  datetime.innerText=n.toLocaleDateString(undefined,{weekday:"long",year:"numeric",month:"long",day:"numeric"})+" | "+n.toLocaleTimeString();
-}
-
-async function inr(){return (await (await fetch(FX)).json()).rates.INR;}
-async function usd(sym){return (await (await fetch(API+sym)).json()).price;}
-
-function setActive(c,b){c.querySelectorAll("button").forEach(x=>x.classList.remove("active"));b.classList.add("active");}
-function showGold(s){document.querySelectorAll(".gold-only").forEach(e=>e.style.display=s?"block":"none");}
-
-function renderWeights(){
-  weightToggle.innerHTML="";
-  if(type==="crypto")return;
-  let o=[{v:1,t:"1 g"}];
-  if(symbol==="XAU")o.push({v:8,t:"8 g"});
-  if(symbol==="XAG")o.push({v:1000,t:"1 kg"});
-  o.forEach(x=>{
-    const b=document.createElement("button");
-    b.textContent=x.t;
-    if(weight===x.v)b.classList.add("active");
-    b.onclick=()=>{weight=x.v;renderWeights();update();};
-    weightToggle.appendChild(b);
-  });
-}
-
-/* ✅ STORE DAILY PRICE (FOR CHARTS) */
-function storeDaily(price){
-  if(mode!=="india" || type!=="metal" || weight!==1) return;
-
-  const key="prices_"+symbol;
-  const list=JSON.parse(localStorage.getItem(key)||"[]");
-  const d=new Date().toISOString().split("T")[0];
-
-  if(!list.find(x=>x.date===d)){
-    list.push({date:d,price});
-    localStorage.setItem(key,JSON.stringify(list));
-  }
-}
-
-async function getSavedDailyPrices(sym) {
-  try {
-    const res = await fetch("./data/daily_prices.json");
-    const data = await res.json();
-
-    return Object.entries(data)
-      .map(([date, prices]) => ({
-        date,
-        price: prices[sym.toLowerCase()]
-      }))
-      .filter(x => x.price !== undefined);
-  } catch (e) {
-    return [];
-  }
-}
-
-/* ✅ RENDER CHARTS (YOUR SAME LOGIC) */
-async function renderCharts(){
-  const data = await getSavedDailyPrices(symbol);
-  if (data.length < 2) return;
-
-  const labels = data.map(d => d.date.slice(5));
-  const values = data.map(d => d.price);
-
-  if (dailyChart) dailyChart.destroy();
-
-  dailyChart = new Chart(dailyChartEl.getContext("2d"), {
-    type: "line",
-    data: {
-      labels,
-      datasets: [{
-        data: values,
-        borderColor: "#22c55e",
-        fill: false,
-        tension: 0.3
-      }]
-    },
-    options: {
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { ticks: { color: "#94a3b8" } },
-        y: { ticks: { color: "#94a3b8" } }
-      }
-    }
-  });
-}
-
-function selectAsset(btn,s,n,t){
-  setActive(assetPills,btn);
-  symbol=s;name=n;type=t;weight=1;
-  assetName.innerText=n;
-  showGold(n==="Gold");
-  modeToggle.style.display=t==="crypto"?"none":"flex";
-  renderWeights();update();
-}
-
-function setMode(btn,m){setActive(modeToggle,btn);mode=m;update();}
-
-async function getYesterdayBasePrice(sym) {
-  try {
-    const res = await fetch("./data/daily_prices.json");
-    const data = await res.json();
-
-    const d = new Date();
-    d.setDate(d.getDate() - 1);
-    const key = d.toISOString().split("T")[0];
-
-    return data[key]?.[sym.toLowerCase()] ?? null;
-  } catch (e) {
-    return null;
-  }
-}
-
-async function update(){
-  updateDateTime();
-  const r=await inr(),u=await usd(symbol);
-  let base=type==="crypto"?u*r:((u/OZ)*r*(mode==="india"?DUTY*GST:1));
-  const v=base*weight;
-  price.innerText = formatINR(v);
-  
-  /* 🔥 YESTERDAY COMPARISON (ONLY ON FIRST LOAD) */
-  if (yesterdayBasePrice === null && mode==="india" && type==="metal" && weight===1) {
-    yesterdayBasePrice = await getYesterdayBasePrice(symbol);
-
-    if (yesterdayBasePrice !== null) {
-      const diff = (base - yesterdayBasePrice) * weight;
-
-      if (diff > 0) {
-        price.classList.add("up");
-        delta.classList.add("up");
-        delta.innerText = "+₹" + diff.toFixed(2);
-      } else if (diff < 0) {
-        price.classList.add("down");
-        delta.classList.add("down");
-        delta.innerText = "-₹" + Math.abs(diff).toFixed(2);
-      }
-    }
-  }
-
-  const key=symbol+"_"+weight+"_"+mode;
-  const prev=previousPrices[key];
-
-  const trendKey = symbol + "_" + weight + "_" + mode;
-
-  if (prev !== undefined) {
-    const diff = v - prev;
-
-    if (diff > 0) {
-      price.classList.remove("down");
-      delta.classList.remove("down");
-
-      price.classList.add("up");
-      delta.classList.add("up");
-
-      delta.innerText = "+₹" + Math.abs(diff).toFixed(2);
-      lastTrend[trendKey] = "up";
-    }
-    else if (diff < 0) {
-      price.classList.remove("up");
-      delta.classList.remove("up");
-  
-      price.classList.add("down");
-      delta.classList.add("down");
-
-      delta.innerText = "-₹" + Math.abs(diff).toFixed(2);
-      lastTrend[trendKey] = "down";
-    }
-    // ⚠️ diff === 0 → DO NOTHING (keep last color & delta)
-  }
-
-  previousPrices[key]=v;
-
-  if(name==="Gold"){
-    k24.innerText=formatINR(v);
-    k22.innerText=formatINR(v*.916);
-    k18.innerText=formatINR(v*.75);
-    window.APP_DATA.goldPriceINR=v.toFixed(2);
-    window.APP_DATA.lastUpdated=new Date().toISOString();
-    if(window.AppInventor)window.AppInventor.setWebViewString(JSON.stringify(window.APP_DATA));
-  }
-
-  storeDaily(base);
-  renderCharts();
-}
-
-/* PDF EXPORT */
-function formatINRForPDF(value){
-  return "Rs. " + value.toLocaleString("en-IN", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  });
-}
-
-function getDateTimeForPDF(){
-  const d = new Date();
-  return d.toLocaleDateString(undefined,{
-    weekday:"long",
-    year:"numeric",
-    month:"long",
-    day:"numeric"
-  }) + " | " + d.toLocaleTimeString();
-}
-
-async function exportToPDF(){
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-  doc.setFont("helvetica", "normal");
-
-  const rate = await inr();
-  let y = 20;
-
-  doc.setFontSize(16);
-  doc.text("Metal Prices (India Market)", 14, y);
-  y += 8;
-
-  doc.setFontSize(11);
-  doc.text(getDateTimeForPDF(), 14, y);
-  y += 10;
-
-  const metals = [
-    { s:"XAU", n:"Gold", w:[1,8] },
-    { s:"XAG", n:"Silver", w:[1,1000] },
-    { s:"XPT", n:"Platinum", w:[1] },
-    { s:"XPD", n:"Palladium", w:[1] },
-    { s:"HG",  n:"Copper", w:[1] }
-  ];
-
-  for(const m of metals){
-    const u = await usd(m.s);
-    let base = (u / OZ) * rate * DUTY * GST;
-
-    for(const w of m.w){
-      doc.text(
-        `${m.n}  ${w===1000 ? "1 kg" : w+" g"}  ${formatINRForPDF(base * w)}`,
-        14,
-        y
-      );
-      y += 7;
-    }
-    y += 4;
-  }
-
-  doc.save("metal-prices.pdf");
-}
-
-const dailyChartEl=document.getElementById("dailyChart");
-renderWeights();update();setInterval(update,30000);
-</script>
+  <!-- External script (all logic here) -->
+  <script src="./script.js" defer></script>
 </body>
 </html>

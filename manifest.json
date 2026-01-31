@@ -1,0 +1,34 @@
+{
+  "name": "Gold Silver Crypto Market Dashboard",
+  "short_name": "Market Dashboard",
+  "description": "Real-time metal and cryptocurrency price tracking for India market",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "theme_color": "#0b1020",
+  "background_color": "#0b1020",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%230b1020' width='192' height='192'/><circle cx='96' cy='96' r='70' fill='%2322c55e'/><text x='96' y='120' font-size='80' font-weight='bold' text-anchor='middle' fill='%23000' font-family='Arial'>₹</text></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect fill='%230b1020' width='512' height='512'/><circle cx='256' cy='256' r='190' fill='%2322c55e'/><text x='256' y='330' font-size='220' font-weight='bold' text-anchor='middle' fill='%23000' font-family='Arial'>₹</text></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["finance", "productivity"],
+  "screenshots": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 540 720'><rect fill='%230b1020' width='540' height='720'/><text x='270' y='360' font-size='48' text-anchor='middle' fill='%2322c55e'>Market Dashboard</text></svg>",
+      "sizes": "540x720",
+      "type": "image/svg+xml",
+      "form_factor": "narrow"
+    }
+  ]
+}
