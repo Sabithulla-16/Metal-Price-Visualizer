@@ -1,10 +1,10 @@
-const CACHE_NAME = 'market-dashboard-v1';
+const CACHE_NAME = 'market-dashboard-v2';
 const urlsToCache = [
   '/',
   '/index.html',
   '/manifest.json',
-  '/libs/chart.umd.js',
-  '/libs/jspdf.umd.min.js'
+  '/icon-192.svg',
+  '/icon-512.svg'
 ];
 
 self.addEventListener('install', event => {
