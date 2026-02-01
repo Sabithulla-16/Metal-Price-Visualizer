@@ -83,8 +83,8 @@ The **Install App** option installs the PWA version, not the APK.
 
 ## 🧑‍💻 Local Setup
 ```
-git clone https://github.com/Sabithulla-16/YOUR_REPO_NAME.git  
-cd YOUR_REPO_NAME  
+git clone https://github.com/Sabithulla-16/Metal-Price-Visualizer.git  
+cd Metal-Price-Visualizer  
 
 Open index.html in a browser or serve it using a local web server.
 ```
