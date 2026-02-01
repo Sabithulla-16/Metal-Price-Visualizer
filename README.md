@@ -12,8 +12,7 @@ It is built as a **Progressive Web App (PWA)** with offline support, interactive
 https://live-met-price.netlify.app/
 
 📲 Android App (APK):  
-[https://github.com/Sabithulla-16/Metal-Price-Visualizer/raw/main/apk/MetPriceVisualizer.apk
-](https://github.com/Sabithulla-16/Metal-Price-Visualizer/blob/main/MetPriceVisualizer.apk)
+https://github.com/Sabithulla-16/Metal-Price-Visualizer/raw/main/MetPriceVisualizer.apk
 ---
 
 ## ✨ Features
