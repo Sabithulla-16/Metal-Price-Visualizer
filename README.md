@@ -1,15 +1,15 @@
 # 💰 MetalPrice Live
 
-[![🌐 Live Website](https://img.shields.io/badge/Live%20Website-Visit-blue)](https://live-met-price.netlify.app/)
+[![🌐 Live Website](https://img.shields.io/badge/Live%20Website-Visit-blue)](https://met-price-visualizer.netlify.app/)
 [![📲 Download APK](https://img.shields.io/badge/Android-Download%20APK-green)](https://github.com/Sabithulla-16/Metal-Price-Visualizer/raw/main/apk/MetPriceVisualizer.apk)
-[![📦 PWA](https://img.shields.io/badge/PWA-Installable-orange)](https://live-met-price.netlify.app/)
+[![📦 PWA](https://img.shields.io/badge/PWA-Installable-orange)](https://met-price-visualizer.netlify.app/)
 [![👨‍💻 Developer](https://img.shields.io/badge/Developer-Sabithulla-purple)](https://github.com/Sabithulla-16)
 
 MetalPrice Live is a **real-time precious metals and cryptocurrency price tracker** designed specifically for the **Indian market 🇮🇳**.  
 It is built as a **Progressive Web App (PWA)** with offline support, interactive charts, and export utilities.
 
 🌐 Live Website:  
-https://live-met-price.netlify.app/
+https://met-price-visualizer.netlify.app/
 
 📲 Android App (APK):  
 https://github.com/Sabithulla-16/Metal-Price-Visualizer/raw/main/MetPriceVisualizer.apk
