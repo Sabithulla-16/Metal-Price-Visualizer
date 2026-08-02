@@ -1,7 +1,7 @@
 # 💰 MetalPrice Live
 
 [![🌐 Live Website](https://img.shields.io/badge/Live%20Website-Visit-blue)](https://met-price-visualizer.netlify.app/)
-[![📲 Download APK](https://img.shields.io/badge/Android-Download%20APK-green)](https://github.com/Sabithulla-16/Metal-Price-Visualizer/raw/main/apk/MetPriceVisualizer.apk)
+[![📲 Download APK](https://img.shields.io/badge/Android-Download%20APK-green)](https://github.com/Sabithulla-16/Metal-Price-Visualizer/releases/latest/download/MetPriceVisualizer.apk)
 [![📦 PWA](https://img.shields.io/badge/PWA-Installable-orange)](https://met-price-visualizer.netlify.app/)
 [![👨‍💻 Developer](https://img.shields.io/badge/Developer-Sabithulla-purple)](https://github.com/Sabithulla-16)
 
